@@ -951,7 +951,7 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   friend class testing::ShellTest;
 
   Engine::Delegate& delegate_;
-  const Settings settings_;
+  Settings settings_;
   std::unique_ptr<Animator> animator_;
   std::unique_ptr<RuntimeController> runtime_controller_;
 

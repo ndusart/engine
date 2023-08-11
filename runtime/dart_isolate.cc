@@ -1085,6 +1085,8 @@ void DartIsolate::AddIsolateShutdownCallback(const fml::closure& closure) {
 }
 
 void DartIsolate::OnShutdownCallback() {
+  shutdown_callbacks_.clear();
+
   tonic::DartState* state = tonic::DartState::Current();
   if (state != nullptr) {
     state->SetIsShuttingDown();
@@ -1097,8 +1099,6 @@ void DartIsolate::OnShutdownCallback() {
       FML_LOG(ERROR) << Dart_GetError(sticky_error);
     }
   }
-
-  shutdown_callbacks_.clear();
 
   const fml::closure& isolate_shutdown_callback =
       GetIsolateGroupData().GetIsolateShutdownCallback();

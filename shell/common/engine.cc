@@ -60,6 +60,44 @@ Engine::Engine(
       task_runners_(task_runners),
       weak_factory_(this) {
   pointer_data_dispatcher_ = dispatcher_maker(*this);
+  {
+    // Override `root_isolate_shutdown_callback` to catch when isolate is about
+    // to shut down and trigger an tree cleanup by calling `runApp`
+    auto cb = std::move(settings_.root_isolate_shutdown_callback);
+    settings_.root_isolate_shutdown_callback = [cb = std::move(cb)]() {
+      if (cb) {
+        cb();
+      }
+
+      Dart_EnterScope();
+
+      // load dart libraries
+      auto basic_widgets_lib = Dart_LookupLibrary(
+          tonic::ToDart("package:flutter/src/widgets/basic.dart"));
+      auto binding_widgets_lib = Dart_LookupLibrary(
+          tonic::ToDart("package:flutter/src/widgets/binding.dart"));
+
+      // Instanciate a `SizedBox.shrink()` for a basic widget replacing the tree
+      // in `runApp`
+      auto sizedbox_class = Dart_GetNonNullableType(
+          basic_widgets_lib, Dart_NewStringFromCString("SizedBox"), 0, nullptr);
+      auto sizedbox = Dart_New(sizedbox_class,
+                               Dart_NewStringFromCString("shrink"), 0, nullptr);
+
+      // call `runApp`
+      auto result =
+          Dart_Invoke(binding_widgets_lib, Dart_NewStringFromCString("runApp"),
+                      1, &sizedbox);
+
+      // must run the event loop because runApp schedule functions through
+      // `Timer` must move call to the callback before state is set to
+      // "ShuttingDown" in order to work (in `void
+      // DartIsolate::OnShutdownCallback()`)
+      result = Dart_RunLoop();
+
+      Dart_ExitScope();
+    };
+  }
 }
 
 Engine::Engine(Delegate& delegate,
